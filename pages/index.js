@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import fs from 'fs';
 import path from 'path';
-import { Plus, Trash2, Package, X, AlertCircle, Home as HomeIcon, Check, Minus, Plus as PlusIcon, Edit3, ShoppingCart } from 'lucide-react';
+import { Plus, Trash2, Package, X, AlertCircle, Home as HomeIcon, Check, Minus, Plus as PlusIcon, Edit3, ShoppingCart, Search } from 'lucide-react';
 
 export async function getServerSideProps() {
   const filePath = path.join(process.cwd(), 'data', 'inventory.md');
@@ -32,8 +32,8 @@ export default function Home({ initialData }) {
   
   const [activeFilter, setActiveFilter] = useState('전체');
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
-  // 🏷️ 카테고리 목록 (기본 카테고리도 정렬해서 시작)
   const [categories, setCategories] = useState(['아기용품', '식재료', '생필품', '비상약'].sort((a, b) => a.localeCompare(b, 'ko')));
   const [newCatInput, setNewCatInput] = useState('');
   const [isAddingCat, setIsAddingCat] = useState(false);
@@ -41,11 +41,20 @@ export default function Home({ initialData }) {
   const units = ['개', '팩', '박스', '봉지', '통', 'ml', '캔', '롤'];
   const [formData, setFormData] = useState({ name: '', category: '아기용품', current: 0, min: 2, unit: '개' });
 
-  // 🔍 필터링된 아이템 계산
+  // 📊 카테고리별 부족 품목 개수 계산
+  const categoryCounts = useMemo(() => {
+    const counts = { '전체': items.filter(i => i.current <= i.min).length };
+    categories.forEach(cat => {
+      counts[cat] = items.filter(i => i.category === cat && i.current <= i.min).length;
+    });
+    return counts;
+  }, [items, categories]);
+
   const filteredItems = items.filter(item => {
     const matchCategory = activeFilter === '전체' || item.category === activeFilter;
     const matchLowStock = showLowStockOnly ? item.current <= item.min : true;
-    return matchCategory && matchLowStock;
+    const matchSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchCategory && matchLowStock && matchSearch;
   });
 
   const saveToFile = async (updatedItems) => {
@@ -65,6 +74,14 @@ export default function Home({ initialData }) {
     if (response.ok) {
       setItems(sortedItems.map((item, idx) => ({ ...item, id: idx })));
     }
+  };
+
+  // 🔗 빠른 수량 조절 및 직접 입력 처리
+  const handleQuickAdjust = (id, val) => {
+    const updated = items.map(item => 
+      item.id === id ? { ...item, current: Math.max(0, val) } : item
+    );
+    saveToFile(updated);
   };
 
   const openModal = (item = null) => {
@@ -96,10 +113,7 @@ export default function Home({ initialData }) {
 
   const addCategory = () => {
     if (newCatInput && !categories.includes(newCatInput)) {
-      // ✨ 카테고리 추가 시 바로 가나다순 정렬 적용
-      const updatedCats = [...categories, newCatInput].sort((a, b) => a.localeCompare(b, 'ko'));
-      setCategories(updatedCats);
-      setFormData({ ...formData, category: newCatInput });
+      setCategories([...categories, newCatInput].sort((a, b) => a.localeCompare(b, 'ko')));
     }
     setNewCatInput('');
     setIsAddingCat(false);
@@ -128,62 +142,95 @@ export default function Home({ initialData }) {
             <button onClick={() => openModal()} className="bg-white text-black px-7 py-3 rounded-full text-[14px] font-bold hover:scale-105 transition-all shadow-lg active:scale-95">추가</button>
           </div>
 
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-              {/* ✨ 탭 메뉴 가나다순 정렬 적용됨 */}
-              {['전체', ...categories].map(cat => (
-                <button 
-                  key={cat} 
-                  onClick={() => setActiveFilter(cat)}
-                  className={`px-5 py-2.5 rounded-full text-[13px] font-bold transition-all whitespace-nowrap ${activeFilter === cat ? 'bg-[#1c1c1e] text-white border border-white/20' : 'text-[#86868b] hover:text-white'}`}
-                >
-                  {cat}
-                </button>
-              ))}
+          <div className="flex flex-col gap-6">
+            <div className="relative group">
+              <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-[#48484a] group-focus-within:text-[#0071e3] transition-colors" />
+              <input 
+                type="text" 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="품목 이름을 검색해보세요..." 
+                className="w-full bg-[#1c1c1e] border border-white/10 rounded-full py-4 pl-14 pr-6 text-[15px] text-white focus:outline-none focus:border-[#0071e3]/50 focus:bg-black transition-all"
+              />
             </div>
-            <button 
-              onClick={() => setShowLowStockOnly(!showLowStockOnly)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-[13px] font-bold border transition-all ${showLowStockOnly ? 'bg-[#ff453a]/20 border-[#ff453a] text-[#ff453a]' : 'bg-[#1c1c1e] border-white/10 text-[#86868b] hover:text-white'}`}
-            >
-              <ShoppingCart size={14} />
-              구매가 필요해요!!
-            </button>
+
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                {['전체', ...categories].map(cat => (
+                  <button 
+                    key={cat} 
+                    onClick={() => setActiveFilter(cat)}
+                    className={`flex items-center gap-1.5 px-5 py-2.5 rounded-full text-[13px] font-bold transition-all whitespace-nowrap ${activeFilter === cat ? 'bg-[#1c1c1e] text-white border border-white/20' : 'text-[#86868b] hover:text-white'}`}
+                  >
+                    {cat}
+                    {categoryCounts[cat] > 0 && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-black ${activeFilter === cat ? 'bg-[#ff453a] text-white' : 'bg-[#ff453a]/15 text-[#ff453a]'}`}>
+                        {categoryCounts[cat]}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              <button 
+                onClick={() => setShowLowStockOnly(!showLowStockOnly)}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-[13px] font-bold border transition-all ${showLowStockOnly ? 'bg-[#ff453a]/20 border-[#ff453a] text-[#ff453a]' : 'bg-[#1c1c1e] border-white/10 text-[#86868b] hover:text-white'}`}
+              >
+                <ShoppingCart size={14} />
+                구매가 필요해요!!
+              </button>
+            </div>
           </div>
         </header>
 
-        <div className="space-y-8">
+        <div className="space-y-6">
           {filteredItems.length > 0 ? filteredItems.map((item, idx) => (
-            <div key={idx} className="group border-b border-white/5 pb-8 flex items-center justify-between transition-all">
-              <div className="flex-1">
+            <div key={idx} className={`group relative border border-white/5 rounded-3xl p-8 flex items-center justify-between transition-all hover:border-white/10 ${item.current <= item.min ? 'bg-[#ff453a]/5' : 'bg-[#1c1c1e]/50'}`}>
+              
+              {item.current <= item.min && <div className="absolute left-0 top-6 bottom-6 w-1 bg-[#ff453a] rounded-r-full shadow-lg shadow-[#ff453a]/30"></div>}
+
+              <div className="flex-1 pl-3">
                 <div className="flex items-center gap-4 mb-2.5">
                   <h3 className="text-[21px] font-bold text-white group-hover:text-[#0071e3] transition-colors cursor-pointer" onClick={() => openModal(item)}>{item.name}</h3>
-                  {item.current <= item.min && <span className="bg-[#ff453a]/15 text-[#ff453a] text-[10px] font-black px-2 py-0.5 rounded-full border border-[#ff453a]/30">🚨 부족</span>}
+                  {item.current <= item.min && <span className="text-[#ff453a] text-[10px] font-black px-2 py-0.5 rounded-full border border-[#ff453a]/30 bg-[#ff453a]/15">🚨 부족</span>}
                 </div>
                 <div className="flex items-center gap-3 text-[13px] text-[#86868b]">
-                  <span className="bg-white/5 px-2 py-0.5 rounded-md font-medium">{item.category}</span>
+                  <span className="bg-white/5 px-2 py-0.5 rounded-md font-medium text-white/80">{item.category}</span>
                   <span className="opacity-20">|</span>
                   <span>기준: {item.min}{item.unit}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-8 text-right">
-                <div>
-                  <p className="text-[10px] font-bold text-[#48484a] mb-0.5 uppercase tracking-tighter">현재 재고</p>
-                  <p className="text-[30px] font-bold text-white italic">{item.current}<span className="text-[14px] text-[#86868b] ml-1.5 not-italic font-normal">{item.unit}</span></p>
+
+              <div className="flex items-center gap-6 text-right">
+                {/* 🔗 [신규] 빠른 수량 조절 + 직접 입력 통합 UI */}
+                <div className="flex items-center gap-3 bg-black rounded-full p-1.5 border border-white/5 shadow-inner">
+                  <button onClick={() => handleQuickAdjust(item.id, item.current - 1)} className="w-8 h-8 rounded-full flex items-center justify-center text-[#ff453a] hover:bg-white/5 active:scale-90 transition-all font-bold text-lg">-</button>
+                  <div className="w-16 relative">
+                    <p className="text-[10px] font-bold text-[#48484a] mb-0 uppercase tracking-tighter">재고</p>
+                    <input 
+                      type="number"
+                      value={item.current}
+                      onChange={(e) => handleQuickAdjust(item.id, parseInt(e.target.value) || 0)}
+                      className="w-full bg-transparent text-[28px] font-bold text-white italic text-center focus:outline-none focus:text-[#0071e3] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                  </div>
+                  <button onClick={() => handleQuickAdjust(item.id, item.current + 1)} className="w-8 h-8 rounded-full flex items-center justify-center text-[#0071e3] hover:bg-white/5 active:scale-90 transition-all font-bold text-lg">+</button>
                 </div>
-                <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                
+                <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-all pr-2">
                   <button onClick={() => openModal(item)} className="p-2 text-[#86868b] hover:text-[#0071e3]"><Edit3 size={18} /></button>
                   <button onClick={() => setDeleteIndex(idx)} className="p-2 text-[#48484a] hover:text-[#ff453a]"><Trash2 size={18} /></button>
                 </div>
               </div>
             </div>
           )) : (
-            <div className="py-20 text-center opacity-30">
-              <Package size={48} className="mx-auto mb-4" />
-              <p>품목이 비어있습니다.</p>
+            <div className="py-24 text-center border border-dashed border-white/10 rounded-3xl opacity-30">
+              <Package size={56} className="mx-auto mb-5 text-[#48484a]" />
+              <p className="text-[15px] font-medium">조회된 품목이 없습니다.</p>
             </div>
           )}
         </div>
 
+        {/* 모달 UI */}
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-xl p-6">
             <div className="bg-[#1c1c1e] border border-white/10 w-full max-w-lg rounded-[2.5rem] p-10 shadow-2xl animate-in zoom-in-95">
@@ -195,7 +242,6 @@ export default function Home({ initialData }) {
                 <div className="space-y-3">
                   <label className="text-[11px] font-bold text-[#86868b] uppercase tracking-widest ml-1">카테고리</label>
                   <div className="flex flex-wrap gap-2">
-                    {/* ✨ 모달 안의 카테고리 칩들도 가나다순 정렬됨 */}
                     {categories.map((cat) => (
                       <div key={cat} className="group/cat relative">
                         <button onClick={() => setFormData({...formData, category: cat})} className={`px-4 py-2 rounded-xl text-[13px] font-bold transition-all ${formData.category === cat ? 'bg-[#0071e3] text-white shadow-lg shadow-[#0071e3]/20' : 'bg-white/5 text-[#86868b] hover:bg-white/10'}`}>{cat}</button>
@@ -203,9 +249,8 @@ export default function Home({ initialData }) {
                       </div>
                     ))}
                     {isAddingCat ? (
-                      <div className="flex items-center gap-1 animate-in slide-in-from-left-2">
+                      <div className="flex items-center gap-1 animate-in zoom-in-95">
                         <input autoFocus value={newCatInput} onChange={(e)=>setNewCatInput(e.target.value)} onBlur={addCategory} onKeyDown={(e)=>e.key==='Enter'&&addCategory()} className="bg-white/5 border border-[#0071e3] rounded-xl px-3 py-1.5 text-[13px] text-white w-24 outline-none"/>
-                        <button onClick={addCategory} className="text-[#0071e3] p-1"><Check size={16}/></button>
                       </div>
                     ) : (
                       <button onClick={() => setIsAddingCat(true)} className="px-4 py-2 rounded-xl border border-dashed border-white/20 text-[#86868b] text-[13px] hover:border-white/40"><Plus size={14}/></button>
@@ -215,11 +260,11 @@ export default function Home({ initialData }) {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[11px] font-bold text-[#86868b] uppercase tracking-widest ml-1">품목 이름</label>
-                    <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full bg-white/10 rounded-2xl p-4 text-white focus:outline-none" />
+                    <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full bg-white/10 rounded-2xl p-4 text-[16px] text-white focus:outline-none" />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[11px] font-bold text-[#86868b] uppercase tracking-widest ml-1">단위</label>
-                    <select value={formData.unit} onChange={(e) => setFormData({...formData, unit: e.target.value})} className="w-full bg-white/10 rounded-2xl p-4 text-white focus:outline-none appearance-none">
+                    <select value={formData.unit} onChange={(e) => setFormData({...formData, unit: e.target.value})} className="w-full bg-white/10 rounded-2xl p-4 text-[16px] text-white focus:outline-none appearance-none">
                       {units.map(u => <option key={u} value={u} className="bg-[#1c1c1e] text-white">{u}</option>)}
                     </select>
                   </div>
@@ -229,7 +274,12 @@ export default function Home({ initialData }) {
                     <label className="text-[11px] font-bold text-[#86868b] uppercase tracking-widest block mb-4">현재 재고 ({formData.unit})</label>
                     <div className="flex items-center justify-between">
                       <button onClick={() => setFormData(p => ({...p, current: Math.max(0, p.current - 1)}))} className="w-10 h-10 bg-white/5 rounded-full text-[#ff453a] hover:bg-white/10 transition-all font-bold text-xl">-</button>
-                      <span className="text-3xl font-bold italic text-white">{formData.current}</span>
+                      <input 
+                        type="number"
+                        value={formData.current}
+                        onChange={(e) => setFormData({...formData, current: parseInt(e.target.value) || 0})}
+                        className="w-16 bg-transparent text-3xl font-bold italic text-white text-center focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
                       <button onClick={() => setFormData(p => ({...p, current: p.current + 1}))} className="w-10 h-10 bg-white/5 rounded-full text-[#0071e3] hover:bg-white/10 transition-all font-bold text-xl">+</button>
                     </div>
                   </div>
@@ -237,17 +287,23 @@ export default function Home({ initialData }) {
                     <label className="text-[11px] font-bold text-[#86868b] uppercase tracking-widest block mb-4">최소 유지 ({formData.unit})</label>
                     <div className="flex items-center justify-between">
                       <button onClick={() => setFormData(p => ({...p, min: Math.max(0, p.min - 1)}))} className="w-10 h-10 bg-white/5 rounded-full text-[#ff453a] hover:bg-white/10 transition-all font-bold text-xl">-</button>
-                      <span className="text-3xl font-bold italic text-white">{formData.min}</span>
+                      <input 
+                        type="number"
+                        value={formData.min}
+                        onChange={(e) => setFormData({...formData, min: parseInt(e.target.value) || 0})}
+                        className="w-16 bg-transparent text-3xl font-bold italic text-white text-center focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
                       <button onClick={() => setFormData(p => ({...p, min: p.min + 1}))} className="w-10 h-10 bg-white/5 rounded-full text-[#0071e3] hover:bg-white/10 transition-all font-bold text-xl">+</button>
                     </div>
                   </div>
                 </div>
               </div>
-              <button onClick={handleSave} className="w-full bg-[#0071e3] text-white font-bold py-5 rounded-2xl mt-12 shadow-xl hover:scale-[1.01] active:scale-95 transition-all text-[16px]">목록에 추가하기</button>
+              <button onClick={handleSave} className="w-full bg-[#0071e3] text-white font-bold py-5 rounded-2xl mt-12 shadow-xl hover:scale-[1.01] active:scale-95 transition-all text-[16px]">저장하기</button>
             </div>
           </div>
         )}
 
+        {/* 삭제 모달 (동일) */}
         {deleteIndex !== null && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xl p-6 text-center">
             <div className="bg-[#1c1c1e] w-full max-w-sm rounded-[32px] p-10 border border-white/10 shadow-2xl animate-in zoom-in-95">
