@@ -118,7 +118,7 @@ export default function Home({ initialData }) {
                 <div className="w-14 h-14 bg-[#1c1c1e] rounded-2xl flex items-center justify-center border border-white/5 shadow-2xl">
                   <HomeIcon size={30} className="text-[#0071e3]" />
                 </div>
-                <h1 className="text-4xl font-bold tracking-tight text-white">재고관리<span className="text-[#0071e3]">.</span></h1>
+                <h1 className="text-4xl font-bold tracking-tight text-white">우리집 재고관리<span className="text-[#0071e3]">.</span></h1>
               </div>
             </div>
             <button onClick={() => openModal()} className="bg-white text-black px-7 py-3.5 rounded-full text-[14px] font-bold hover:scale-105 transition-all shadow-lg">추가</button>
@@ -143,7 +143,7 @@ export default function Home({ initialData }) {
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-[13px] font-bold border transition-all ${showLowStockOnly ? 'bg-[#ff453a]/20 border-[#ff453a] text-[#ff453a]' : 'border-white/10 text-[#86868b]'}`}
               >
                 <ShoppingCart size={14} />
-                부족한 것만
+                구매가 필요해요!!
               </button>
             </div>
           </div>
