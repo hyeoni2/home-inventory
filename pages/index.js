@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import fs from 'fs';
 import path from 'path';
 import { Plus, Trash2, Package, X, AlertCircle, Home as HomeIcon, Check, Minus, Plus as PlusIcon, Edit3, ShoppingCart, Search, ChevronDown, ChevronUp } from 'lucide-react';
@@ -34,8 +34,10 @@ export default function Home({ initialData }) {
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // 🔽 [신규] 카테고리 더보기 상태
+  // 🔽 카테고리 더보기 및 높이 감지 상태
   const [isCatExpanded, setIsCatExpanded] = useState(false);
+  const [needsMoreButton, setNeedsMoreButton] = useState(false);
+  const catContainerRef = useRef(null);
 
   const [categories, setCategories] = useState(['아기용품', '식재료', '생필품', '비상약'].sort((a, b) => a.localeCompare(b, 'ko')));
   const [newCatInput, setNewCatInput] = useState('');
@@ -43,6 +45,15 @@ export default function Home({ initialData }) {
   
   const units = ['개', '팩', '박스', '봉지', '통', 'ml', '캔', '롤'];
   const [formData, setFormData] = useState({ name: '', category: '아기용품', current: 0, min: 2, unit: '개' });
+
+  // ✨ 카테고리 줄바꿈 여부 감지 로직
+  useEffect(() => {
+    if (catContainerRef.current) {
+      const { scrollHeight, clientHeight } = catContainerRef.current;
+      // scrollHeight(실제 높이)가 clientHeight(보이는 높이)보다 크면 줄바꿈이 일어난 것
+      setNeedsMoreButton(scrollHeight > 90); // 약 2줄 높이 기준
+    }
+  }, [categories]);
 
   const categoryCounts = useMemo(() => {
     const counts = { '전체': items.filter(i => i.current <= i.min).length };
@@ -155,9 +166,12 @@ export default function Home({ initialData }) {
               />
             </div>
 
-            {/* ✨ 카테고리 높이 제한 + 더보기 버튼 */}
             <div className="flex flex-col gap-3">
-              <div className={`flex flex-wrap gap-2 items-center transition-all duration-300 overflow-hidden ${isCatExpanded ? 'max-h-[500px]' : 'max-h-[85px] md:max-h-[100px]'}`}>
+              {/* ✨ 지능형 높이 감지 컨테이너 */}
+              <div 
+                ref={catContainerRef}
+                className={`flex flex-wrap gap-2 items-center transition-all duration-300 overflow-hidden ${isCatExpanded ? 'max-h-[500px]' : 'max-h-[85px] md:max-h-[100px]'}`}
+              >
                 {['전체', ...categories].map(cat => (
                   <button 
                     key={cat} 
@@ -173,8 +187,8 @@ export default function Home({ initialData }) {
                   </button>
                 ))}
                 
-                {/* 더보기 토글 버튼 */}
-                {categories.length > 3 && (
+                {/* 🔽 조건부 더보기 버튼 (줄바꿈이 생길 때만 노출) */}
+                {needsMoreButton && (
                   <button 
                     onClick={() => setIsCatExpanded(!isCatExpanded)}
                     className="flex items-center gap-1 px-3 py-2 text-[11px] font-bold text-[#0071e3] hover:opacity-80 transition-all"
@@ -241,7 +255,6 @@ export default function Home({ initialData }) {
           )}
         </div>
 
-        {/* 모달 UI */}
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-xl p-4 overflow-y-auto">
             <div className="bg-[#1c1c1e] border border-white/10 w-full max-w-lg rounded-[1.5rem] p-6 md:p-10 shadow-2xl my-auto animate-in zoom-in-95">
