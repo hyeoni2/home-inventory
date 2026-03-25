@@ -2,8 +2,8 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
   const { content } = req.body;
-  const token = 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;
-  const repo = hyeoni2/home-inventory;
+  const token = process.env.GITHUB_TOKEN;
+  const repo = process.env.GITHUB_REPO;
   const path = 'data/inventory.md';
 
   try {
