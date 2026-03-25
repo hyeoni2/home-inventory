@@ -41,7 +41,6 @@ export default function Home({ initialData }) {
   const units = ['개', '팩', '박스', '봉지', '통', 'ml', '캔', '롤'];
   const [formData, setFormData] = useState({ name: '', category: '아기용품', current: 0, min: 2, unit: '개' });
 
-  // 📊 카테고리별 부족 품목 개수 계산
   const categoryCounts = useMemo(() => {
     const counts = { '전체': items.filter(i => i.current <= i.min).length };
     categories.forEach(cat => {
@@ -76,7 +75,6 @@ export default function Home({ initialData }) {
     }
   };
 
-  // 🔗 빠른 수량 조절 및 직접 입력 처리
   const handleQuickAdjust = (id, val) => {
     const updated = items.map(item => 
       item.id === id ? { ...item, current: Math.max(0, val) } : item
@@ -125,46 +123,46 @@ export default function Home({ initialData }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-[#f5f5f7] p-6 md:p-20 font-[-apple-system,system-ui,sans-serif] antialiased">
-      <div className="max-w-3xl mx-auto">
+    <div className="min-h-screen bg-[#0a0a0a] text-[#f5f5f7] p-4 md:p-20 font-[-apple-system,system-ui,sans-serif] antialiased overflow-x-hidden">
+      <div className="max-w-3xl mx-auto w-full">
         
-        <header className="mb-16">
-          <div className="flex justify-between items-end mb-12 pb-8 border-b border-white/5">
-            <div className="space-y-4">
-              <p className="text-[12px] font-bold text-[#86868b] tracking-[0.3em] pl-1.5 opacity-60 uppercase italic">GURI DOOSAN DASHBOARD</p>
-              <div className="flex items-center gap-5">
-                <div className="w-14 h-14 bg-[#1c1c1e] rounded-2xl flex items-center justify-center border border-white/5 shadow-2xl">
-                  <HomeIcon size={30} className="text-[#0071e3]" />
+        <header className="mb-10 md:mb-16">
+          <div className="flex justify-between items-end mb-8 md:mb-12 pb-6 md:pb-8 border-b border-white/5">
+            <div className="space-y-2 md:y-4">
+              <p className="text-[10px] md:text-[12px] font-bold text-[#86868b] tracking-[0.2em] md:tracking-[0.3em] pl-1 opacity-60 uppercase italic">GURI DOOSAN DASHBOARD</p>
+              <div className="flex items-center gap-3 md:gap-5">
+                <div className="w-10 h-10 md:w-14 md:h-14 bg-[#1c1c1e] rounded-xl md:rounded-2xl flex items-center justify-center border border-white/5 shadow-2xl">
+                  <HomeIcon size={20} className="text-[#0071e3] md:w-[30px] md:h-[30px]" />
                 </div>
-                <h1 className="text-4xl font-bold tracking-tight text-white">우리집 재고관리<span className="text-[#0071e3]">.</span></h1>
+                <h1 className="text-2xl md:text-4xl font-bold tracking-tight text-white">우리집 재고관리<span className="text-[#0071e3]">.</span></h1>
               </div>
             </div>
-            <button onClick={() => openModal()} className="bg-white text-black px-7 py-3 rounded-full text-[14px] font-bold hover:scale-105 transition-all shadow-lg active:scale-95">추가</button>
+            <button onClick={() => openModal()} className="bg-white text-black px-5 md:px-7 py-2 md:py-3 rounded-full text-[13px] md:text-[14px] font-bold hover:scale-105 transition-all shadow-lg active:scale-95">추가</button>
           </div>
 
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-4 md:gap-6">
             <div className="relative group">
-              <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-[#48484a] group-focus-within:text-[#0071e3] transition-colors" />
+              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#48484a] group-focus-within:text-[#0071e3] transition-colors" />
               <input 
                 type="text" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="품목 이름을 검색해보세요..." 
-                className="w-full bg-[#1c1c1e] border border-white/10 rounded-full py-4 pl-14 pr-6 text-[15px] text-white focus:outline-none focus:border-[#0071e3]/50 focus:bg-black transition-all"
+                placeholder="품목 검색..." 
+                className="w-full bg-[#1c1c1e] border border-white/10 rounded-full py-3 md:py-4 pl-12 md:pl-14 pr-6 text-[14px] md:text-[15px] text-white focus:outline-none focus:border-[#0071e3]/50 transition-all"
               />
             </div>
 
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 max-w-[calc(100vw-150px)] md:max-w-none">
                 {['전체', ...categories].map(cat => (
                   <button 
                     key={cat} 
                     onClick={() => setActiveFilter(cat)}
-                    className={`flex items-center gap-1.5 px-5 py-2.5 rounded-full text-[13px] font-bold transition-all whitespace-nowrap ${activeFilter === cat ? 'bg-[#1c1c1e] text-white border border-white/20' : 'text-[#86868b] hover:text-white'}`}
+                    className={`flex items-center gap-1.5 px-3 md:px-5 py-2 md:py-2.5 rounded-full text-[12px] md:text-[13px] font-bold transition-all whitespace-nowrap ${activeFilter === cat ? 'bg-[#1c1c1e] text-white border border-white/20' : 'text-[#86868b] hover:text-white'}`}
                   >
                     {cat}
                     {categoryCounts[cat] > 0 && (
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-black ${activeFilter === cat ? 'bg-[#ff453a] text-white' : 'bg-[#ff453a]/15 text-[#ff453a]'}`}>
+                      <span className={`text-[9px] px-1 py-0.5 rounded-md font-black ${activeFilter === cat ? 'bg-[#ff453a] text-white' : 'bg-[#ff453a]/15 text-[#ff453a]'}`}>
                         {categoryCounts[cat]}
                       </span>
                     )}
@@ -173,151 +171,137 @@ export default function Home({ initialData }) {
               </div>
               <button 
                 onClick={() => setShowLowStockOnly(!showLowStockOnly)}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-[13px] font-bold border transition-all ${showLowStockOnly ? 'bg-[#ff453a]/20 border-[#ff453a] text-[#ff453a]' : 'bg-[#1c1c1e] border-white/10 text-[#86868b] hover:text-white'}`}
+                className={`flex items-center gap-2 px-3 md:px-5 py-2 md:py-2.5 rounded-full text-[11px] md:text-[13px] font-bold border transition-all shrink-0 ${showLowStockOnly ? 'bg-[#ff453a]/20 border-[#ff453a] text-[#ff453a]' : 'bg-[#1c1c1e] border-white/10 text-[#86868b]'}`}
               >
-                <ShoppingCart size={14} />
+                <ShoppingCart size={12} className="md:w-3.5 md:h-3.5" />
                 구매가 필요해요!!
               </button>
             </div>
           </div>
         </header>
 
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
           {filteredItems.length > 0 ? filteredItems.map((item, idx) => (
-            <div key={idx} className={`group relative border border-white/5 rounded-3xl p-8 flex items-center justify-between transition-all hover:border-white/10 ${item.current <= item.min ? 'bg-[#ff453a]/5' : 'bg-[#1c1c1e]/50'}`}>
+            <div key={idx} className={`group relative border border-white/5 rounded-2xl md:rounded-3xl p-5 md:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all ${item.current <= item.min ? 'bg-[#ff453a]/5' : 'bg-[#1c1c1e]/50'}`}>
               
-              {item.current <= item.min && <div className="absolute left-0 top-6 bottom-6 w-1 bg-[#ff453a] rounded-r-full shadow-lg shadow-[#ff453a]/30"></div>}
+              {item.current <= item.min && <div className="absolute left-0 top-4 bottom-4 w-1 bg-[#ff453a] rounded-r-full shadow-lg shadow-[#ff453a]/30"></div>}
 
-              <div className="flex-1 pl-3">
-                <div className="flex items-center gap-4 mb-2.5">
-                  <h3 className="text-[21px] font-bold text-white group-hover:text-[#0071e3] transition-colors cursor-pointer" onClick={() => openModal(item)}>{item.name}</h3>
-                  {item.current <= item.min && <span className="text-[#ff453a] text-[10px] font-black px-2 py-0.5 rounded-full border border-[#ff453a]/30 bg-[#ff453a]/15">🚨 부족</span>}
+              <div className="flex-1 w-full sm:w-auto">
+                <div className="flex items-center gap-3 mb-2">
+                  <h3 className="text-[18px] md:text-[21px] font-bold text-white group-hover:text-[#0071e3] transition-colors cursor-pointer" onClick={() => openModal(item)}>{item.name}</h3>
+                  {item.current <= item.min && <span className="text-[#ff453a] text-[9px] font-black px-1.5 py-0.5 rounded-full border border-[#ff453a]/30 bg-[#ff453a]/15">🚨 부족</span>}
                 </div>
-                <div className="flex items-center gap-3 text-[13px] text-[#86868b]">
-                  <span className="bg-white/5 px-2 py-0.5 rounded-md font-medium text-white/80">{item.category}</span>
+                <div className="flex items-center gap-2 text-[12px] text-[#86868b]">
+                  <span className="bg-white/5 px-2 py-0.5 rounded-md font-medium text-white/80 shrink-0">{item.category}</span>
                   <span className="opacity-20">|</span>
-                  <span>기준: {item.min}{item.unit}</span>
+                  <span className="truncate">기준: {item.min}{item.unit}</span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-6 text-right">
-                {/* 🔗 [신규] 빠른 수량 조절 + 직접 입력 통합 UI */}
-                <div className="flex items-center gap-3 bg-black rounded-full p-1.5 border border-white/5 shadow-inner">
-                  <button onClick={() => handleQuickAdjust(item.id, item.current - 1)} className="w-8 h-8 rounded-full flex items-center justify-center text-[#ff453a] hover:bg-white/5 active:scale-90 transition-all font-bold text-lg">-</button>
-                  <div className="w-16 relative">
-                    <p className="text-[10px] font-bold text-[#48484a] mb-0 uppercase tracking-tighter">재고</p>
+              <div className="flex items-center justify-between w-full sm:w-auto gap-4 md:gap-8">
+                <div className="flex items-center gap-2 md:gap-3 bg-black rounded-full p-1 border border-white/5 shadow-inner">
+                  <button onClick={() => handleQuickAdjust(item.id, item.current - 1)} className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-[#ff453a] hover:bg-white/5 active:scale-90 font-bold text-lg">-</button>
+                  <div className="w-12 md:w-16">
                     <input 
                       type="number"
                       value={item.current}
                       onChange={(e) => handleQuickAdjust(item.id, parseInt(e.target.value) || 0)}
-                      className="w-full bg-transparent text-[28px] font-bold text-white italic text-center focus:outline-none focus:text-[#0071e3] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="w-full bg-transparent text-[22px] md:text-[28px] font-bold text-white italic text-center focus:outline-none focus:text-[#0071e3]"
                     />
                   </div>
-                  <button onClick={() => handleQuickAdjust(item.id, item.current + 1)} className="w-8 h-8 rounded-full flex items-center justify-center text-[#0071e3] hover:bg-white/5 active:scale-90 transition-all font-bold text-lg">+</button>
+                  <button onClick={() => handleQuickAdjust(item.id, item.current + 1)} className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-[#0071e3] hover:bg-white/5 active:scale-90 font-bold text-lg">+</button>
                 </div>
                 
-                <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-all pr-2">
-                  <button onClick={() => openModal(item)} className="p-2 text-[#86868b] hover:text-[#0071e3]"><Edit3 size={18} /></button>
-                  <button onClick={() => setDeleteIndex(idx)} className="p-2 text-[#48484a] hover:text-[#ff453a]"><Trash2 size={18} /></button>
+                <div className="flex items-center gap-1 pr-1">
+                  <button onClick={() => openModal(item)} className="p-2 text-[#86868b] hover:text-[#0071e3]"><Edit3 size={16} /></button>
+                  <button onClick={() => setDeleteIndex(idx)} className="p-2 text-[#48484a] hover:text-[#ff453a]"><Trash2 size={16} /></button>
                 </div>
               </div>
             </div>
           )) : (
-            <div className="py-24 text-center border border-dashed border-white/10 rounded-3xl opacity-30">
-              <Package size={56} className="mx-auto mb-5 text-[#48484a]" />
-              <p className="text-[15px] font-medium">조회된 품목이 없습니다.</p>
+            <div className="py-20 text-center border border-dashed border-white/10 rounded-2xl opacity-30">
+              <Package size={40} className="mx-auto mb-4 text-[#48484a]" />
+              <p className="text-[14px]">조회된 품목이 없습니다.</p>
             </div>
           )}
         </div>
 
-        {/* 모달 UI */}
+        {/* 모달은 뷰포트 크기에 따라 적절히 조절됨 */}
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-xl p-6">
-            <div className="bg-[#1c1c1e] border border-white/10 w-full max-w-lg rounded-[2.5rem] p-10 shadow-2xl animate-in zoom-in-95">
-              <div className="flex justify-between items-center mb-10">
-                <h2 className="text-2xl font-bold text-white tracking-tight">{editingId !== null ? '품목 수정' : '품목 등록'}</h2>
-                <button onClick={() => setIsModalOpen(false)} className="text-[#86868b] hover:text-white p-2 bg-white/5 rounded-full"><X size={22}/></button>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-xl p-4 overflow-y-auto">
+            <div className="bg-[#1c1c1e] border border-white/10 w-full max-w-lg rounded-[1.5rem] md:rounded-[2.5rem] p-6 md:p-10 shadow-2xl my-auto">
+              <div className="flex justify-between items-center mb-6 md:mb-10">
+                <h2 className="text-xl md:text-2xl font-bold text-white">{editingId !== null ? '품목 수정' : '품목 등록'}</h2>
+                <button onClick={() => setIsModalOpen(false)} className="text-[#86868b] p-2 bg-white/5 rounded-full"><X size={20}/></button>
               </div>
-              <div className="space-y-8">
+              <div className="space-y-6 md:space-y-8 text-left">
                 <div className="space-y-3">
-                  <label className="text-[11px] font-bold text-[#86868b] uppercase tracking-widest ml-1">카테고리</label>
+                  <label className="text-[10px] font-bold text-[#86868b] uppercase tracking-widest ml-1">카테고리</label>
                   <div className="flex flex-wrap gap-2">
                     {categories.map((cat) => (
-                      <div key={cat} className="group/cat relative">
-                        <button onClick={() => setFormData({...formData, category: cat})} className={`px-4 py-2 rounded-xl text-[13px] font-bold transition-all ${formData.category === cat ? 'bg-[#0071e3] text-white shadow-lg shadow-[#0071e3]/20' : 'bg-white/5 text-[#86868b] hover:bg-white/10'}`}>{cat}</button>
-                        <button onClick={(e) => { e.stopPropagation(); removeCategory(cat); }} className="absolute -top-1.5 -right-1.5 bg-[#ff453a] text-white rounded-full p-0.5 opacity-0 group-hover/cat:opacity-100 transition-opacity"><X size={10} /></button>
+                      <div key={cat} className="group/cat relative shrink-0">
+                        <button onClick={() => setFormData({...formData, category: cat})} className={`px-3 py-1.5 rounded-lg text-[12px] font-bold transition-all ${formData.category === cat ? 'bg-[#0071e3] text-white shadow-lg' : 'bg-white/5 text-[#86868b]'}`}>{cat}</button>
+                        <button onClick={(e) => { e.stopPropagation(); removeCategory(cat); }} className="absolute -top-1 -right-1 bg-[#ff453a] text-white rounded-full p-0.5 opacity-100 md:opacity-0 group-hover/cat:opacity-100"><X size={8} /></button>
                       </div>
                     ))}
                     {isAddingCat ? (
-                      <div className="flex items-center gap-1 animate-in zoom-in-95">
-                        <input autoFocus value={newCatInput} onChange={(e)=>setNewCatInput(e.target.value)} onBlur={addCategory} onKeyDown={(e)=>e.key==='Enter'&&addCategory()} className="bg-white/5 border border-[#0071e3] rounded-xl px-3 py-1.5 text-[13px] text-white w-24 outline-none"/>
-                      </div>
+                      <input autoFocus value={newCatInput} onChange={(e)=>setNewCatInput(e.target.value)} onBlur={addCategory} className="bg-white/5 border border-[#0071e3] rounded-lg px-2 py-1 text-[12px] text-white w-20 outline-none"/>
                     ) : (
-                      <button onClick={() => setIsAddingCat(true)} className="px-4 py-2 rounded-xl border border-dashed border-white/20 text-[#86868b] text-[13px] hover:border-white/40"><Plus size={14}/></button>
+                      <button onClick={() => setIsAddingCat(true)} className="px-3 py-1.5 rounded-lg border border-dashed border-white/20 text-[#86868b] text-[12px]"><Plus size={12}/></button>
                     )}
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-[#86868b] uppercase tracking-widest ml-1">품목 이름</label>
-                    <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full bg-white/10 rounded-2xl p-4 text-[16px] text-white focus:outline-none" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2 text-left">
+                    <label className="text-[10px] font-bold text-[#86868b] uppercase tracking-widest ml-1">품목 이름</label>
+                    <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full bg-white/10 rounded-xl p-3 text-[14px] text-white outline-none" />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-[#86868b] uppercase tracking-widest ml-1">단위</label>
-                    <select value={formData.unit} onChange={(e) => setFormData({...formData, unit: e.target.value})} className="w-full bg-white/10 rounded-2xl p-4 text-[16px] text-white focus:outline-none appearance-none">
+                  <div className="space-y-2 text-left">
+                    <label className="text-[10px] font-bold text-[#86868b] uppercase tracking-widest ml-1">단위</label>
+                    <select value={formData.unit} onChange={(e) => setFormData({...formData, unit: e.target.value})} className="w-full bg-white/10 rounded-xl p-3 text-[14px] text-white outline-none">
                       {units.map(u => <option key={u} value={u} className="bg-[#1c1c1e] text-white">{u}</option>)}
                     </select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2 text-center bg-white/5 rounded-2xl p-6 border border-white/5">
-                    <label className="text-[11px] font-bold text-[#86868b] uppercase tracking-widest block mb-4">현재 재고 ({formData.unit})</label>
-                    <div className="flex items-center justify-between">
-                      <button onClick={() => setFormData(p => ({...p, current: Math.max(0, p.current - 1)}))} className="w-10 h-10 bg-white/5 rounded-full text-[#ff453a] hover:bg-white/10 transition-all font-bold text-xl">-</button>
-                      <input 
-                        type="number"
-                        value={formData.current}
-                        onChange={(e) => setFormData({...formData, current: parseInt(e.target.value) || 0})}
-                        className="w-16 bg-transparent text-3xl font-bold italic text-white text-center focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      />
-                      <button onClick={() => setFormData(p => ({...p, current: p.current + 1}))} className="w-10 h-10 bg-white/5 rounded-full text-[#0071e3] hover:bg-white/10 transition-all font-bold text-xl">+</button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="bg-white/5 rounded-xl p-4 border border-white/5">
+                    <label className="text-[10px] font-bold text-[#86868b] uppercase tracking-widest block mb-3 text-center">현재 재고 ({formData.unit})</label>
+                    <div className="flex items-center justify-between px-2">
+                      <button onClick={() => setFormData(p => ({...p, current: Math.max(0, p.current - 1)}))} className="w-8 h-8 rounded-full text-[#ff453a] bg-white/5">-</button>
+                      <input type="number" value={formData.current} onChange={(e) => setFormData({...formData, current: parseInt(e.target.value) || 0})} className="w-12 bg-transparent text-2xl font-bold text-center text-white outline-none"/>
+                      <button onClick={() => setFormData(p => ({...p, current: p.current + 1}))} className="w-8 h-8 rounded-full text-[#0071e3] bg-white/5">+</button>
                     </div>
                   </div>
-                  <div className="space-y-2 text-center bg-white/5 rounded-2xl p-6 border border-white/5">
-                    <label className="text-[11px] font-bold text-[#86868b] uppercase tracking-widest block mb-4">최소 유지 ({formData.unit})</label>
-                    <div className="flex items-center justify-between">
-                      <button onClick={() => setFormData(p => ({...p, min: Math.max(0, p.min - 1)}))} className="w-10 h-10 bg-white/5 rounded-full text-[#ff453a] hover:bg-white/10 transition-all font-bold text-xl">-</button>
-                      <input 
-                        type="number"
-                        value={formData.min}
-                        onChange={(e) => setFormData({...formData, min: parseInt(e.target.value) || 0})}
-                        className="w-16 bg-transparent text-3xl font-bold italic text-white text-center focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      />
-                      <button onClick={() => setFormData(p => ({...p, min: p.min + 1}))} className="w-10 h-10 bg-white/5 rounded-full text-[#0071e3] hover:bg-white/10 transition-all font-bold text-xl">+</button>
+                  <div className="bg-white/5 rounded-xl p-4 border border-white/5">
+                    <label className="text-[10px] font-bold text-[#86868b] uppercase tracking-widest block mb-3 text-center">최소 유지 ({formData.unit})</label>
+                    <div className="flex items-center justify-between px-2">
+                      <button onClick={() => setFormData(p => ({...p, min: Math.max(0, p.min - 1)}))} className="w-8 h-8 rounded-full text-[#ff453a] bg-white/5">-</button>
+                      <input type="number" value={formData.min} onChange={(e) => setFormData({...formData, min: parseInt(e.target.value) || 0})} className="w-12 bg-transparent text-2xl font-bold text-center text-white outline-none"/>
+                      <button onClick={() => setFormData(p => ({...p, min: p.min + 1}))} className="w-8 h-8 rounded-full text-[#0071e3] bg-white/5">+</button>
                     </div>
                   </div>
                 </div>
               </div>
-              <button onClick={handleSave} className="w-full bg-[#0071e3] text-white font-bold py-5 rounded-2xl mt-12 shadow-xl hover:scale-[1.01] active:scale-95 transition-all text-[16px]">저장하기</button>
+              <button onClick={handleSave} className="w-full bg-[#0071e3] text-white font-bold py-4 rounded-xl mt-8 shadow-xl active:scale-95 transition-all text-[15px]">저장하기</button>
             </div>
           </div>
         )}
 
-        {/* 삭제 모달 (동일) */}
+        {/* 삭제 모달 (모바일 대응) */}
         {deleteIndex !== null && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xl p-6 text-center">
-            <div className="bg-[#1c1c1e] w-full max-w-sm rounded-[32px] p-10 border border-white/10 shadow-2xl animate-in zoom-in-95">
-              <h2 className="text-[20px] font-bold mb-8 text-white tracking-tight">정말 삭제하시겠습니까?</h2>
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-6">
+            <div className="bg-[#1c1c1e] w-full max-w-xs rounded-[2rem] p-8 text-center border border-white/10 shadow-2xl">
+              <h2 className="text-[18px] font-bold mb-8 text-white">삭제하시겠습니까?</h2>
               <div className="flex flex-col gap-3">
-                <button onClick={confirmDelete} className="py-4 bg-[#ff453a] text-white rounded-2xl font-semibold transition-all shadow-lg shadow-[#ff453a]/20">삭제</button>
-                <button onClick={() => setDeleteIndex(null)} className="py-4 text-[#86868b] font-semibold hover:text-white transition-colors">취소</button>
+                <button onClick={confirmDelete} className="py-4 bg-[#ff453a] text-white rounded-xl font-bold transition-all shadow-lg">삭제</button>
+                <button onClick={() => setDeleteIndex(null)} className="py-4 text-[#86868b] font-medium">취소</button>
               </div>
             </div>
           </div>
         )}
 
-        <footer className="mt-40 mb-10 text-center py-10 border-t border-white/5 opacity-40">
-          <p className="text-[11px] text-[#86868b] tracking-[0.3em] uppercase italic">GURI DOOSAN DASHBOARD · 2026</p>
+        <footer className="mt-20 mb-10 text-center py-6 border-t border-white/5 opacity-40">
+          <p className="text-[10px] text-[#86868b] tracking-[0.2em] uppercase italic">GURI DOOSAN DASHBOARD · 2026</p>
         </footer>
       </div>
     </div>
