@@ -7,10 +7,21 @@ export async function getServerSideProps() {
   const filePath = path.join(process.cwd(), 'data', 'inventory.md');
   const rawContent = fs.readFileSync(filePath, 'utf8');
   const rows = rawContent.split('\n').filter(line => line.includes('|') && !line.includes('---') && !line.startsWith('#'));
+  
+  // 🔤 가나다순 정렬 로직 추가
   const data = rows.slice(1).map((row, index) => {
     const cols = row.split('|').map(c => c.trim()).filter(Boolean);
-    return { id: index, name: cols[0].replace(/\*\*/g, ''), category: cols[1], current: parseInt(cols[2]) || 0, min: parseInt(cols[3]) || 1, unit: cols[4] || '개', status: cols[5] };
-  });
+    return { 
+      id: index, 
+      name: cols[0].replace(/\*\*/g, ''), 
+      category: cols[1], 
+      current: parseInt(cols[2]) || 0, 
+      min: parseInt(cols[3]) || 1, 
+      unit: cols[4] || '개', 
+      status: cols[5] 
+    };
+  }).sort((a, b) => a.name.localeCompare(b.name, 'ko')); // 한글 가나다순 정렬
+
   return { props: { initialData: data } };
 }
 
@@ -24,15 +35,17 @@ export default function Home({ initialData }) {
   const [newCatInput, setNewCatInput] = useState('');
   const [isAddingCat, setIsAddingCat] = useState(false);
   
-  // 📏 단위 목록
   const units = ['개', '팩', '박스', '봉지', '통', 'ml', '캔', '롤'];
   
   const initialForm = { name: '', category: '아기용품', current: 0, min: 2, unit: '개' };
   const [formData, setFormData] = useState(initialForm);
 
   const saveToFile = async (updatedItems) => {
+    // 저장할 때도 가나다순으로 정렬해서 저장하면 MD 파일이 깔끔해집니다.
+    const sortedItems = [...updatedItems].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+
     let mdContent = `# 📦 우리집 재고 현황 (구리 두산)\n\n| 품목 | 카테고리 | 현재 | 최소 | 단위 | 상태 |\n| :--- | :--- | :---: | :---: | :--- | :--- |\n`;
-    updatedItems.forEach(item => {
+    sortedItems.forEach(item => {
       const status = item.current <= item.min ? '🚨 부족' : '✅ 여유';
       mdContent += `| **${item.name}** | ${item.category} | ${item.current} | ${item.min} | ${item.unit} | ${status} |\n`;
     });
@@ -44,9 +57,9 @@ export default function Home({ initialData }) {
     });
 
     if (response.ok) {
-      setItems(updatedItems.map((item, idx) => ({ ...item, id: idx })));
+      setItems(sortedItems.map((item, idx) => ({ ...item, id: idx })));
     } else {
-      alert('GitHub 저장 실패! Vercel 환경 변수나 권한 설정을 확인해주세요.');
+      alert('GitHub 저장 실패! 설정을 확인해주세요.');
     }
   };
 
@@ -147,7 +160,7 @@ export default function Home({ initialData }) {
                   <label className="text-[11px] font-bold text-[#86868b] uppercase tracking-widest ml-1">카테고리</label>
                   <div className="flex flex-wrap gap-2">
                     {categories.map((cat) => (
-                      <button key={cat} onClick={() => setFormData({...formData, category: cat})} className={`px-4 py-2 rounded-xl text-[13px] font-bold transition-all ${formData.category === cat ? 'bg-[#0071e3] text-white shadow-lg shadow-[#0071e3]/20' : 'bg-white/5 text-[#86868b] hover:bg-white/10'}`}>{cat}</button>
+                      <button key={cat} onClick={() => setFormData({...formData, category: cat})} className={`px-4 py-2 rounded-xl text-[13px] font-bold transition-all ${formData.category === cat ? 'bg-[#0071e3] text-white shadow-lg' : 'bg-white/5 text-[#86868b] hover:bg-white/10'}`}>{cat}</button>
                     ))}
                     {isAddingCat ? (
                       <div className="flex items-center gap-1 animate-in zoom-in-95">
