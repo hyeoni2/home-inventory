@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import fs from 'fs';
 import path from 'path';
-import { Plus, Trash2, Package, X, AlertCircle, Home as HomeIcon, Check, Minus, Plus as PlusIcon, Edit3, ShoppingCart, Search, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, Package, X, AlertCircle, Home as HomeIcon, Check, Minus, Plus as PlusIcon, Edit3, ShoppingCart, Search, ChevronDown, ChevronUp, Bell } from 'lucide-react';
 
 export async function getServerSideProps({ res }) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -22,7 +22,10 @@ export default function Home({ initialData }) {
   const [deleteIndex, setDeleteIndex] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
   const [activeFilter, setActiveFilter] = useState('전체');
-  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
+  
+  // ✨ 필터 상태 분리
+  const [filterMode, setFilterMode] = useState('all'); // 'all', 'low', 'ready'
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [isCatExpanded, setIsCatExpanded] = useState(false);
   const [needsMoreButton, setNeedsMoreButton] = useState(false);
@@ -34,7 +37,6 @@ export default function Home({ initialData }) {
   const units = ['개', '팩', '박스', '봉지', '통', 'ml', '캔', '롤'];
   const [formData, setFormData] = useState({ name: '', category: '아기용품', current: 0, min: 2, unit: '개' });
 
-  // 📊 [에러 해결 포인트] 카테고리별 부족/준비 품목 개수 계산 (요약 배지)
   const categoryCounts = useMemo(() => {
     const counts = { '전체': items.filter(i => i.current <= i.min).length };
     categories.forEach(cat => {
@@ -60,11 +62,16 @@ export default function Home({ initialData }) {
   const filteredItems = useMemo(() => {
     return items.filter(item => {
       const matchCategory = activeFilter === '전체' || item.category === activeFilter;
-      const matchLowStock = showLowStockOnly ? item.current <= item.min : true;
       const matchSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchCategory && matchLowStock && matchSearch;
+      
+      // ✨ 필터 로직 상세화
+      let matchStatus = true;
+      if (filterMode === 'low') matchStatus = item.current < item.min;
+      if (filterMode === 'ready') matchStatus = item.current === item.min;
+      
+      return matchCategory && matchSearch && matchStatus;
     });
-  }, [items, activeFilter, showLowStockOnly, searchTerm]);
+  }, [items, activeFilter, filterMode, searchTerm]);
 
   const saveToFile = async (updatedItems) => {
     setItems(updatedItems);
@@ -169,15 +176,21 @@ export default function Home({ initialData }) {
                     {categoryCounts[cat] > 0 && <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-black ${activeFilter === cat ? 'bg-[#ff453a] text-white' : 'bg-[#ff453a]/15 text-[#ff453a]'}`}>{categoryCounts[cat]}</span>}
                   </button>
                 ))}
-                {needsMoreButton && (
-                  <button onClick={() => setIsCatExpanded(!isCatExpanded)} className="flex items-center gap-1 px-3 py-2 text-[11px] font-bold text-[#0071e3] hover:opacity-80 transition-all">
-                    {isCatExpanded ? <><ChevronUp size={14}/> 접기</> : <><ChevronDown size={14}/> 더보기</>}
-                  </button>
-                )}
               </div>
-              <button onClick={() => setShowLowStockOnly(!showLowStockOnly)} className={`flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-2.5 rounded-full text-[12px] font-bold border transition-all ${showLowStockOnly ? 'bg-[#ff453a]/20 border-[#ff453a] text-[#ff453a]' : 'bg-[#1c1c1e] border-white/10 text-[#86868b]'}`}>
-                <ShoppingCart size={14} /> 구매가 필요해요!!
-              </button>
+              
+              {/* ✨ 필터 버튼 레이아웃 분리 */}
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setFilterMode(filterMode === 'low' ? 'all' : 'low')} 
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-[12px] font-bold border transition-all ${filterMode === 'low' ? 'bg-[#ff453a]/20 border-[#ff453a] text-[#ff453a]' : 'bg-[#1c1c1e] border-white/10 text-[#86868b]'}`}>
+                  <ShoppingCart size={14} /> 구매가 필요해요!!
+                </button>
+                <button 
+                  onClick={() => setFilterMode(filterMode === 'ready' ? 'all' : 'ready')} 
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-[12px] font-bold border transition-all ${filterMode === 'ready' ? 'bg-[#ffcc00]/20 border-[#ffcc00] text-[#ffcc00]' : 'bg-[#1c1c1e] border-white/10 text-[#86868b]'}`}>
+                  <Bell size={14} /> 따로 준비해요!!
+                </button>
+              </div>
             </div>
           </div>
         </header>
