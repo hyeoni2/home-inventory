@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import fs from 'fs';
 import path from 'path';
-import { Plus, Trash2, Package, X, AlertCircle, Home as HomeIcon, Check, Minus, Plus as PlusIcon, Edit3, ShoppingCart, Search, ChevronDown, ChevronUp, Bell, Settings2 } from 'lucide-react';
+import { Plus, Trash2, Package, X, AlertCircle, Home as HomeIcon, Check, Minus, Plus as PlusIcon, Edit3, ShoppingCart, Search, ChevronDown, ChevronUp, Bell, Settings2, Copy } from 'lucide-react';
 
 export async function getServerSideProps({ res }) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -55,7 +55,7 @@ export default function Home({ initialData }) {
   useEffect(() => {
     if (catContainerRef.current) {
       const { scrollHeight } = catContainerRef.current;
-      setNeedsMoreButton(scrollHeight > 90);
+      setNeedsMoreButton(scrollHeight > 95);
     }
   }, [categories]);
 
@@ -87,7 +87,26 @@ export default function Home({ initialData }) {
     }
   };
 
-  // ✨ 에러 해결: handleSave 함수가 컴포넌트 내부에 정확히 정의됨
+  // ✨ 신규 기능: 부족 품목 목록 복사
+  const copyShoppingList = () => {
+    const lowStockItems = items.filter(item => item.current < item.min);
+    if (lowStockItems.length === 0) {
+      setToastMessage('부족한 품목이 없습니다! 🎉');
+      return;
+    }
+    
+    let text = `📦 구리 두산 장보기 목록\n\n`;
+    lowStockItems.forEach((item, index) => {
+      text += `${index + 1}. ${item.name} (${item.current}/${item.min}${item.unit} 보유)\n`;
+    });
+    
+    navigator.clipboard.writeText(text).then(() => {
+      setToastMessage('목록이 복사되었습니다! ✅');
+    }).catch(() => {
+      setToastMessage('복사 실패 ❌');
+    });
+  };
+
   const handleSave = () => {
     if (!formData.name || !formData.category) return;
     let updated = editingId !== null 
@@ -175,7 +194,7 @@ export default function Home({ initialData }) {
                 </button>
               </div>
 
-              <div ref={catContainerRef} className={`flex flex-wrap gap-2 items-center transition-all duration-300 overflow-hidden ${isCatExpanded ? 'max-h-[500px]' : 'max-h-[95px]'}`}>
+              <div ref={catContainerRef} className={`flex flex-wrap gap-2 items-center transition-all duration-300 overflow-hidden ${isCatExpanded ? 'max-h-[500px]' : 'max-h-[105px]'}`}>
                 <button onClick={() => {setActiveFilter('전체'); setIsCatManageMode(false);}} className={`px-4 py-2.5 rounded-full text-[13px] font-bold border transition-all ${activeFilter === '전체' && !isCatManageMode ? 'bg-[#1c1c1e] text-white border-white/30' : 'text-[#48484a] border-transparent'}`}>전체</button>
                 {categories.map(cat => (
                   <div key={cat} className="flex items-center gap-1">
@@ -199,11 +218,25 @@ export default function Home({ initialData }) {
                     )}
                   </div>
                 ))}
+                {needsMoreButton && (
+                  <button onClick={() => setIsCatExpanded(!isCatExpanded)} className="flex items-center gap-1 px-3 py-2 text-[11px] font-bold text-[#0071e3] hover:opacity-80 transition-all">
+                    {isCatExpanded ? <><ChevronUp size={14}/> 접기</> : <><ChevronDown size={14}/> 더보기</>}
+                  </button>
+                )}
               </div>
               
               <div className="flex gap-2.5 pt-2">
                 <button onClick={() => setFilterMode(filterMode === 'low' ? 'all' : 'low')} className={`flex-1 flex items-center justify-center gap-2.5 px-4 py-4 rounded-2xl text-[13px] font-bold border transition-all ${filterMode === 'low' ? 'bg-[#ff453a]/20 border-[#ff453a] text-[#ff453a]' : 'bg-[#1c1c1e] border-white/5 text-[#86868b]'}`}><ShoppingCart size={15} /> 구매가 필요해요!!</button>
                 <button onClick={() => setFilterMode(filterMode === 'ready' ? 'all' : 'ready')} className={`flex-1 flex items-center justify-center gap-2.5 px-4 py-4 rounded-2xl text-[13px] font-bold border transition-all ${filterMode === 'ready' ? 'bg-[#ffcc00]/20 border-[#ffcc00] text-[#ffcc00]' : 'bg-[#1c1c1e] border-white/5 text-[#86868b]'}`}><Bell size={15} /> 따로 준비해요!!</button>
+                
+                {/* ✨ 추가된 구매 목록 복사 버튼 */}
+                <button 
+                  onClick={copyShoppingList}
+                  title="구매 목록 복사"
+                  className="flex items-center justify-center bg-[#1c1c1e] border border-white/10 text-[#86868b] px-4 rounded-2xl hover:text-white hover:bg-white/5 transition-all"
+                >
+                  <Copy size={16} />
+                </button>
               </div>
             </div>
           </div>
@@ -230,7 +263,9 @@ export default function Home({ initialData }) {
                 <div className="flex items-center justify-between w-full sm:w-auto gap-8">
                   <div className="flex items-center gap-3 bg-black/40 rounded-full p-1.5 border border-white/5 shadow-inner">
                     <button onClick={() => handleQuickAdjust(item.id, item.current - 1)} className="w-8 h-8 rounded-full flex items-center justify-center text-[#ff453a] active:scale-90 font-bold text-xl hover:bg-white/5">-</button>
-                    <input type="number" value={item.current} onChange={(e) => handleQuickAdjust(item.id, parseInt(e.target.value) || 0)} className="w-14 bg-transparent text-[24px] md:text-[28px] font-bold text-white italic text-center focus:outline-none"/>
+                    <div className="w-14">
+                      <input type="number" value={item.current} onChange={(e) => handleQuickAdjust(item.id, parseInt(e.target.value) || 0)} className="w-full bg-transparent text-[24px] md:text-[28px] font-bold text-white italic text-center focus:outline-none"/>
+                    </div>
                     <button onClick={() => handleQuickAdjust(item.id, item.current + 1)} className="w-8 h-8 rounded-full flex items-center justify-center text-[#0071e3] active:scale-90 font-bold text-xl hover:bg-white/5">+</button>
                   </div>
                   <div className="flex items-center gap-2">
@@ -255,7 +290,7 @@ export default function Home({ initialData }) {
                   <label className="text-[11px] font-bold text-[#86868b] uppercase tracking-widest ml-1">카테고리 선택</label>
                   <div className="flex flex-wrap gap-2">
                     {categories.map((cat) => (
-                      <button key={cat} onClick={() => setFormData({...formData, category: cat})} className={`px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all ${formData.category === cat ? 'bg-[#0071e3] text-white shadow-lg' : 'bg-white/5 text-[#86868b]'}`}>{cat}</button>
+                      <button key={cat} onClick={() => setFormData({...formData, category: cat})} className={`px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all ${formData.category === cat ? 'bg-[#0071e3] text-white' : 'bg-white/5 text-[#86868b]'}`}>{cat}</button>
                     ))}
                     {isAddingCat ? (
                       <input autoFocus value={newCatInput} onChange={(e)=>setNewCatInput(e.target.value)} onBlur={() => {if(newCatInput)setFormData({...formData, category: newCatInput}); setIsAddingCat(false);}} className="bg-white/5 border border-[#0071e3] rounded-xl px-3 py-1.5 text-[13px] text-white w-28 outline-none"/>
@@ -280,17 +315,17 @@ export default function Home({ initialData }) {
                   <div className="bg-white/5 rounded-2xl p-6 border border-white/5 text-center">
                     <label className="text-[11px] font-bold text-[#86868b] uppercase tracking-widest block mb-4">현재 재고</label>
                     <div className="flex items-center justify-between px-2">
-                      <button onClick={() => setFormData(p => ({...p, current: Math.max(0, p.current - 1)}))} className="w-8 h-8 rounded-full bg-white/5 text-[#ff453a] font-bold text-xl hover:bg-white/10 transition-all">-</button>
+                      <button onClick={() => setFormData(p => ({...p, current: Math.max(0, p.current - 1)}))} className="w-10 h-10 rounded-full bg-white/5 text-[#ff453a] font-bold text-xl hover:bg-white/10 transition-all">-</button>
                       <span className="text-3xl font-bold italic text-white">{formData.current}</span>
-                      <button onClick={() => setFormData(p => ({...p, current: p.current + 1}))} className="w-8 h-8 rounded-full bg-white/5 text-[#0071e3] font-bold text-xl hover:bg-white/10 transition-all">+</button>
+                      <button onClick={() => setFormData(p => ({...p, current: p.current + 1}))} className="w-10 h-10 rounded-full bg-white/5 text-[#0071e3] font-bold text-xl hover:bg-white/10 transition-all">+</button>
                     </div>
                   </div>
                   <div className="bg-white/5 rounded-2xl p-6 border border-white/5 text-center">
                     <label className="text-[11px] font-bold text-[#86868b] uppercase tracking-widest block mb-4">최소 유지</label>
                     <div className="flex items-center justify-between px-2">
-                      <button onClick={() => setFormData(p => ({...p, min: Math.max(0, p.min - 1)}))} className="w-8 h-8 rounded-full bg-white/5 text-[#ff453a] font-bold text-xl hover:bg-white/10 transition-all">-</button>
+                      <button onClick={() => setFormData(p => ({...p, min: Math.max(0, p.min - 1)}))} className="w-10 h-10 rounded-full bg-white/5 text-[#ff453a] font-bold text-xl hover:bg-white/10 transition-all">-</button>
                       <span className="text-3xl font-bold italic text-white">{formData.min}</span>
-                      <button onClick={() => setFormData(p => ({...p, min: p.min + 1}))} className="w-8 h-8 rounded-full bg-white/5 text-[#0071e3] font-bold text-xl hover:bg-white/10 transition-all">+</button>
+                      <button onClick={() => setFormData(p => ({...p, min: p.min + 1}))} className="w-10 h-10 rounded-full bg-white/5 text-[#0071e3] font-bold text-xl hover:bg-white/10 transition-all">+</button>
                     </div>
                   </div>
                 </div>
@@ -305,7 +340,11 @@ export default function Home({ initialData }) {
             <div className="bg-[#1c1c1e] w-full max-w-xs rounded-[2rem] p-8 text-center border border-white/10 shadow-2xl animate-in zoom-in-95">
               <h2 className="text-[18px] font-bold mb-8 text-white tracking-tight">정말 삭제하시겠습니까?</h2>
               <div className="flex flex-col gap-3">
-                <button onClick={confirmDelete} className="py-4 bg-[#ff453a] text-white rounded-xl font-bold transition-all shadow-lg shadow-[#ff453a]/20">삭제</button>
+                <button onClick={() => {
+                   const updated = items.filter((_, i) => i !== deleteIndex);
+                   saveToFile(updated);
+                   setDeleteIndex(null);
+                }} className="py-4 bg-[#ff453a] text-white rounded-xl font-bold transition-all shadow-lg shadow-[#ff453a]/20">삭제</button>
                 <button onClick={() => setDeleteIndex(null)} className="py-4 text-[#86868b] font-medium hover:text-white">취소</button>
               </div>
             </div>
