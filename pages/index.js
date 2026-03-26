@@ -5,18 +5,29 @@ import { Plus, Trash2, Package, X, AlertCircle, Home as HomeIcon, Check, Minus, 
 
 export async function getServerSideProps({ res }) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  const filePath = path.join(process.cwd(), 'data', 'inventory.md');
-  const rawContent = fs.readFileSync(filePath, 'utf8');
-  const rows = rawContent.split('\n').filter(line => line.includes('|') && !line.includes('---') && !line.startsWith('#'));
-  const data = rows.slice(1).map((row, index) => {
-    const cols = row.split('|').map(c => c.trim()).filter(Boolean);
-    return { id: index, name: cols[0].replace(/\*\*/g, ''), category: cols[1], current: parseInt(cols[2]) || 0, min: parseInt(cols[3]) || 1, unit: cols[4] || '개', status: cols[5] };
-  }).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
-  return { props: { initialData: data } };
+  try {
+    const filePath = path.join(process.cwd(), 'data', 'inventory.md');
+    const rawContent = fs.readFileSync(filePath, 'utf8');
+    const rows = rawContent.split('\n').filter(line => line.includes('|') && !line.includes('---') && !line.startsWith('#'));
+    const data = rows.slice(1).map((row, index) => {
+      const cols = row.split('|').map(c => c.trim()).filter(Boolean);
+      return { 
+        id: index, 
+        name: cols[0]?.replace(/\*\*/g, '') || '이름 없음', 
+        category: cols[1] || '미분류', 
+        current: parseInt(cols[2]) || 0, 
+        min: parseInt(cols[3]) || 1, 
+        unit: cols[4] || '개'
+      };
+    }).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+    return { props: { initialData: data } };
+  } catch (e) {
+    return { props: { initialData: [] } };
+  }
 }
 
 export default function Home({ initialData }) {
-  const [items, setItems] = useState(initialData);
+  const [items, setItems] = useState(initialData || []);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [deleteIndex, setDeleteIndex] = useState(null);
@@ -24,19 +35,28 @@ export default function Home({ initialData }) {
   const [activeFilter, setActiveFilter] = useState('전체');
   const [filterMode, setFilterMode] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // 카테고리 상태 관리
+  const [isCatExpanded, setIsCatExpanded] = useState(false);
+  const [needsMoreButton, setNeedsMoreButton] = useState(false);
+  const catContainerRef = useRef(null);
+  const [isCatManageMode, setIsCatManageMode] = useState(false);
+  const [catEditingName, setCatEditingName] = useState({ old: '', new: '' });
+
   const categories = useMemo(() => {
     const uniqueCats = Array.from(new Set(items.map(item => item.category)));
     return uniqueCats.sort((a, b) => a.localeCompare(b, 'ko'));
   }, [items]);
 
-  // ✨ 카테고리 편집 상태 추가
-  const [isCatManageMode, setIsCatManageMode] = useState(false);
-  const [catEditingName, setCatEditingName] = useState({ old: '', new: '' });
-
   const units = ['개', '팩', '박스', '봉지', '통', 'ml', '캔', '롤'];
   const [formData, setFormData] = useState({ name: '', category: '', current: 0, min: 2, unit: '개' });
+  const [isAddingCat, setIsAddingCat] = useState(false);
+  const [newCatInput, setNewCatInput] = useState('');
+
+  useEffect(() => {
+    if (catContainerRef.current) {
+      const { scrollHeight } = catContainerRef.current;
+      setNeedsMoreButton(scrollHeight > 90);
+    }
+  }, [categories]);
 
   useEffect(() => {
     if (toastMessage) {
@@ -45,9 +65,20 @@ export default function Home({ initialData }) {
     }
   }, [toastMessage]);
 
+  const categoryCounts = useMemo(() => {
+    const counts = { '전체': items.filter(i => i.current <= i.min).length };
+    categories.forEach(cat => {
+      counts[cat] = items.filter(i => i.category === cat && i.current <= i.min).length;
+    });
+    return counts;
+  }, [items, categories]);
+
   const saveToFile = async (updatedItems) => {
-    setItems(updatedItems);
-    const sortedItems = [...updatedItems].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+    // ✨ ID 재정렬 및 상태 업데이트
+    const finalizedItems = updatedItems.map((item, idx) => ({ ...item, id: idx }));
+    setItems(finalizedItems);
+
+    const sortedItems = [...finalizedItems].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
     let mdContent = `# 📦 우리집 재고 현황 (구리 두산)\n\n| 품목 | 카테고리 | 현재 | 최소 | 단위 | 상태 |\n| :--- | :--- | :---: | :---: | :--- | :--- |\n`;
     sortedItems.forEach(item => {
       let statusText = '✅ 여유';
@@ -62,30 +93,41 @@ export default function Home({ initialData }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: mdContent }),
       });
-      if (response.ok) setToastMessage('저장 완료');
+      if (response.ok) setToastMessage('수정 완료');
     } catch (error) {
       setToastMessage('저장 오류');
     }
   };
 
-  // ✨ 카테고리 이름 일괄 수정 함수
-  const renameCategory = (oldName, newName) => {
-    if (!newName || oldName === newName) return;
-    const updated = items.map(item => 
-      item.category === oldName ? { ...item, category: newName } : item
-    );
+  const handleSave = () => {
+    if (!formData.name || !formData.category) return;
+    
+    let updated;
+    if (editingId !== null) {
+      // 수정 모드
+      updated = items.map(item => item.id === editingId ? { ...formData } : item);
+    } else {
+      // 신규 등록 모드
+      updated = [...items, { ...formData, id: items.length }];
+    }
+    
     saveToFile(updated);
-    setCatEditingName({ old: '', new: '' });
-    setIsCatManageMode(false);
+    setIsModalOpen(false);
   };
 
-  // ✨ 카테고리 삭제 함수
-  const deleteCategory = (catName) => {
-    const updated = items.map(item => 
-      item.category === catName ? { ...item, category: '미분류' } : item
-    );
+  const renameCategory = (oldName, newName) => {
+    if (!newName || oldName === newName) {
+      setCatEditingName({ old: '', new: '' });
+      return;
+    }
+    const updated = items.map(item => item.category === oldName ? { ...item, category: newName } : item);
     saveToFile(updated);
-    setIsCatManageMode(false);
+    setCatEditingName({ old: '', new: '' });
+  };
+
+  const deleteCategory = (catName) => {
+    const updated = items.map(item => item.category === catName ? { ...item, category: '미분류' } : item);
+    saveToFile(updated);
   };
 
   const filteredItems = useMemo(() => {
@@ -113,12 +155,12 @@ export default function Home({ initialData }) {
       setEditingId(null);
     }
     setIsModalOpen(true);
+    setIsAddingCat(false);
   };
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-[#f5f5f7] p-4 md:p-20 font-[-apple-system,system-ui,sans-serif] antialiased overflow-x-hidden relative">
       <div className="max-w-3xl mx-auto w-full">
-        
         {toastMessage && (
           <div className="fixed bottom-10 left-1/2 -translate-x-1/2 md:left-auto md:right-10 md:translate-x-0 z-[100] bg-white/10 backdrop-blur-xl border border-white/20 text-white px-6 py-3.5 rounded-2xl font-medium shadow-2xl animate-in fade-in slide-in-from-bottom-4 flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-[#0071e3] shadow-[0_0_10px_#0071e3]"></div>
@@ -149,51 +191,40 @@ export default function Home({ initialData }) {
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between mb-1">
                 <p className="text-[11px] font-bold text-[#48484a] uppercase tracking-widest pl-1">Category</p>
-                {/* ✨ 카테고리 관리 모드 토글 버튼 */}
-                <button 
-                  onClick={() => setIsCatManageMode(!isCatManageMode)}
-                  className={`flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full transition-all ${isCatManageMode ? 'bg-[#0071e3] text-white' : 'text-[#86868b] hover:text-white bg-white/5'}`}
-                >
+                <button onClick={() => setIsCatManageMode(!isCatManageMode)} className={`flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full transition-all ${isCatManageMode ? 'bg-[#0071e3] text-white' : 'text-[#86868b] hover:text-white bg-white/5'}`}>
                   <Settings2 size={12} /> {isCatManageMode ? '완료' : '편집'}
                 </button>
               </div>
 
-              <div className="flex flex-wrap gap-2 items-center">
+              <div ref={catContainerRef} className={`flex flex-wrap gap-2 items-center transition-all duration-300 overflow-hidden ${isCatExpanded ? 'max-h-[500px]' : 'max-h-[95px]'}`}>
                 <button onClick={() => {setActiveFilter('전체'); setIsCatManageMode(false);}} className={`px-4 py-2.5 rounded-full text-[13px] font-bold border transition-all ${activeFilter === '전체' && !isCatManageMode ? 'bg-[#1c1c1e] text-white border-white/30' : 'text-[#48484a] border-transparent'}`}>전체</button>
-                
                 {categories.map(cat => (
-                  <div key={cat} className="relative group">
+                  <div key={cat} className="flex items-center gap-1">
                     {catEditingName.old === cat ? (
-                      <div className="flex items-center bg-[#1c1c1e] border border-[#0071e3] rounded-full px-3 py-1">
-                        <input 
-                          autoFocus 
-                          value={catEditingName.new} 
-                          onChange={(e) => setCatEditingName({ ...catEditingName, new: e.target.value })}
-                          onKeyDown={(e) => e.key === 'Enter' && renameCategory(cat, catEditingName.new)}
-                          onBlur={() => renameCategory(cat, catEditingName.new)}
-                          className="bg-transparent text-[13px] text-white outline-none w-20"
-                        />
+                      <div className="flex items-center bg-[#1c1c1e] border border-[#0071e3] rounded-full px-3 py-1.5">
+                        <input autoFocus value={catEditingName.new} onChange={(e) => setCatEditingName({ ...catEditingName, new: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && renameCategory(cat, catEditingName.new)} onBlur={() => renameCategory(cat, catEditingName.new)} className="bg-transparent text-[13px] text-white outline-none w-20" />
                         <Check size={14} className="text-[#0071e3] cursor-pointer" onClick={() => renameCategory(cat, catEditingName.new)} />
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1">
-                        <button 
-                          onClick={() => !isCatManageMode && setActiveFilter(cat)}
-                          className={`px-4 py-2.5 rounded-full text-[13px] font-bold border transition-all ${activeFilter === cat && !isCatManageMode ? 'bg-[#1c1c1e] text-white border-white/30' : 'text-[#86868b] border-transparent hover:text-white'}`}
-                        >
-                          {cat}
+                      <>
+                        <button onClick={() => !isCatManageMode && setActiveFilter(cat)} className={`px-4 py-2.5 rounded-full text-[13px] font-bold border transition-all ${activeFilter === cat && !isCatManageMode ? 'bg-[#1c1c1e] text-white border-white/30' : 'text-[#86868b] border-transparent hover:text-white'}`}>
+                          {cat} {categoryCounts[cat] > 0 && <span className="ml-1 opacity-50 text-[10px]">{categoryCounts[cat]}</span>}
                         </button>
-                        {/* ✨ 관리 모드일 때 나타나는 수정/삭제 버튼 */}
                         {isCatManageMode && (
-                          <div className="flex items-center gap-1 ml-1 animate-in slide-in-from-left-2">
+                          <div className="flex items-center gap-1 ml-1">
                             <button onClick={() => setCatEditingName({ old: cat, new: cat })} className="p-1.5 bg-white/5 rounded-full text-[#86868b] hover:text-[#0071e3]"><Edit3 size={12}/></button>
                             <button onClick={() => deleteCategory(cat)} className="p-1.5 bg-white/5 rounded-full text-[#86868b] hover:text-[#ff453a]"><Trash2 size={12}/></button>
                           </div>
                         )}
-                      </div>
+                      </>
                     )}
                   </div>
                 ))}
+                {needsMoreButton && (
+                  <button onClick={() => setIsCatExpanded(!isCatExpanded)} className="flex items-center gap-1 px-3 py-2 text-[11px] font-bold text-[#0071e3] hover:opacity-80 transition-all">
+                    {isCatExpanded ? <><ChevronUp size={14}/> 접기</> : <><ChevronDown size={14}/> 더보기</>}
+                  </button>
+                )}
               </div>
               
               <div className="flex gap-2.5 pt-2">
@@ -204,18 +235,17 @@ export default function Home({ initialData }) {
           </div>
         </header>
 
-        {/* 품목 리스트 및 모달은 이전과 동일 (가독성을 위해 핵심 로직 유지) */}
         <div className="space-y-4 md:space-y-6">
           {filteredItems.map((item, idx) => {
             const isShort = item.current < item.min;
             const isJustEnough = item.current === item.min;
             return (
-              <div key={idx} className={`group relative border border-white/5 rounded-[2rem] p-6 md:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 transition-all ${isShort ? 'bg-[#ff453a]/5' : isJustEnough ? 'bg-[#ffcc00]/5' : 'bg-[#1c1c1e]/50'}`}>
+              <div key={item.id || idx} className={`group relative border border-white/5 rounded-[2rem] p-6 md:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 transition-all ${isShort ? 'bg-[#ff453a]/5' : isJustEnough ? 'bg-[#ffcc00]/5' : 'bg-[#1c1c1e]/50'}`}>
                 <div className="flex-1 text-left">
                   <div className="flex items-center gap-3 mb-2.5">
                     <h3 className="text-[20px] md:text-[22px] font-bold text-white cursor-pointer" onClick={() => openModal(item)}>{item.name}</h3>
-                    {isShort && <span className="text-[#ff453a] text-[10px] font-black px-2 py-0.5 rounded-full border border-[#ff453a]/30 bg-[#ff453a]/15">🚨 부족</span>}
-                    {isJustEnough && <span className="text-[#ffcc00] text-[10px] font-black px-2 py-0.5 rounded-full border border-[#ffcc00]/30 bg-[#ffcc00]/15">⚠️ 준비</span>}
+                    {isShort && <span className="text-[#ff453a] text-[9px] font-black px-1.5 py-0.5 rounded-full border border-[#ff453a]/30 bg-[#ff453a]/15">🚨 부족</span>}
+                    {isJustEnough && <span className="text-[#ffcc00] text-[9px] font-black px-1.5 py-0.5 rounded-full border border-[#ffcc00]/30 bg-[#ffcc00]/15">⚠️ 준비</span>}
                   </div>
                   <div className="flex items-center gap-3 text-[13px] text-[#86868b]">
                     <span className="bg-white/5 px-2.5 py-1 rounded-lg font-bold text-white/70 tracking-tight">{item.category}</span>
@@ -225,9 +255,9 @@ export default function Home({ initialData }) {
                 </div>
                 <div className="flex items-center justify-between w-full sm:w-auto gap-8">
                   <div className="flex items-center gap-3 bg-black/40 rounded-full p-1.5 border border-white/5 shadow-inner">
-                    <button onClick={() => handleQuickAdjust(item.id, item.current - 1)} className="w-8 h-8 rounded-full flex items-center justify-center text-[#ff453a] hover:bg-white/5 transition-all font-bold text-xl">-</button>
-                    <input type="number" value={item.current} onChange={(e) => handleQuickAdjust(item.id, parseInt(e.target.value) || 0)} className="w-14 bg-transparent text-[28px] font-bold text-white italic text-center focus:outline-none"/>
-                    <button onClick={() => handleQuickAdjust(item.id, item.current + 1)} className="w-8 h-8 rounded-full flex items-center justify-center text-[#0071e3] hover:bg-white/5 transition-all font-bold text-xl">+</button>
+                    <button onClick={() => handleQuickAdjust(item.id, item.current - 1)} className="w-8 h-8 rounded-full flex items-center justify-center text-[#ff453a] active:scale-90 font-bold text-xl hover:bg-white/5">-</button>
+                    <input type="number" value={item.current} onChange={(e) => handleQuickAdjust(item.id, parseInt(e.target.value) || 0)} className="w-14 bg-transparent text-[24px] md:text-[28px] font-bold text-white italic text-center focus:outline-none"/>
+                    <button onClick={() => handleQuickAdjust(item.id, item.current + 1)} className="w-8 h-8 rounded-full flex items-center justify-center text-[#0071e3] active:scale-90 font-bold text-xl hover:bg-white/5">+</button>
                   </div>
                   <div className="flex items-center gap-2">
                     <button onClick={() => openModal(item)} className="p-2 text-[#48484a] hover:text-white transition-colors"><Edit3 size={18} /></button>
@@ -239,7 +269,6 @@ export default function Home({ initialData }) {
           })}
         </div>
 
-        {/* 모달 UI (생략 없이 통합본에 포함) */}
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-xl p-4 overflow-y-auto">
             <div className="bg-[#1c1c1e] border border-white/10 w-full max-w-lg rounded-[2.5rem] p-8 md:p-12 shadow-2xl animate-in zoom-in-95">
@@ -247,24 +276,29 @@ export default function Home({ initialData }) {
                 <h2 className="text-2xl font-bold text-white">{editingId !== null ? '품목 수정' : '품목 등록'}</h2>
                 <button onClick={() => setIsModalOpen(false)} className="text-[#86868b] p-2 hover:bg-white/5 rounded-full transition-all"><X size={24}/></button>
               </div>
-              <div className="space-y-8 text-left">
-                <div className="space-y-4">
+              <div className="space-y-8">
+                <div className="space-y-4 text-left">
                   <label className="text-[11px] font-bold text-[#86868b] uppercase tracking-widest ml-1">카테고리 선택</label>
                   <div className="flex flex-wrap gap-2">
                     {categories.map((cat) => (
-                      <button key={cat} onClick={() => setFormData({...formData, category: cat})} className={`px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all ${formData.category === cat ? 'bg-[#0071e3] text-white shadow-lg' : 'bg-white/5 text-[#86868b] hover:bg-white/10'}`}>{cat}</button>
+                      <button key={cat} onClick={() => setFormData({...formData, category: cat})} className={`px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all ${formData.category === cat ? 'bg-[#0071e3] text-white' : 'bg-white/5 text-[#86868b]'}`}>{cat}</button>
                     ))}
+                    {isAddingCat ? (
+                      <input autoFocus value={newCatInput} onChange={(e)=>setNewCatInput(e.target.value)} onBlur={() => {if(newCatInput)setFormData({...formData, category: newCatInput}); setIsAddingCat(false);}} className="bg-white/5 border border-[#0071e3] rounded-xl px-3 py-1.5 text-[13px] text-white w-28 outline-none"/>
+                    ) : (
+                      <button onClick={() => setIsAddingCat(true)} className="px-4 py-2.5 rounded-xl border border-dashed border-white/20 text-[#86868b] text-[13px]">+ 새 분류</button>
+                    )}
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
                   <div className="space-y-2">
                     <label className="text-[11px] font-bold text-[#86868b] uppercase tracking-widest ml-1">품목 이름</label>
-                    <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full bg-white/10 rounded-2xl p-4 text-white outline-none focus:ring-1 ring-[#0071e3]" />
+                    <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full bg-white/10 rounded-2xl p-4 text-white outline-none" />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[11px] font-bold text-[#86868b] uppercase tracking-widest ml-1">단위</label>
                     <select value={formData.unit} onChange={(e) => setFormData({...formData, unit: e.target.value})} className="w-full bg-white/10 rounded-2xl p-4 text-white outline-none appearance-none">
-                      {units.map(u => <option key={u} value={u} className="bg-[#1c1c1e] text-white">{u}</option>)}
+                      {units.map(u => <option key={u} value={u} className="bg-[#1c1c1e]">{u}</option>)}
                     </select>
                   </div>
                 </div>
@@ -272,22 +306,22 @@ export default function Home({ initialData }) {
                   <div className="bg-white/5 rounded-2xl p-6 border border-white/5 text-center">
                     <label className="text-[11px] font-bold text-[#86868b] uppercase tracking-widest block mb-4">현재 재고</label>
                     <div className="flex items-center justify-between">
-                      <button onClick={() => setFormData(p => ({...p, current: Math.max(0, p.current - 1)}))} className="w-10 h-10 rounded-full bg-white/5 text-[#ff453a] font-bold text-xl hover:bg-white/10">-</button>
+                      <button onClick={() => setFormData(p => ({...p, current: Math.max(0, p.current - 1)}))} className="w-10 h-10 rounded-full bg-white/5 text-[#ff453a] font-bold text-xl">-</button>
                       <span className="text-3xl font-bold italic text-white">{formData.current}</span>
-                      <button onClick={() => setFormData(p => ({...p, current: p.current + 1}))} className="w-10 h-10 rounded-full bg-white/5 text-[#0071e3] font-bold text-xl hover:bg-white/10">+</button>
+                      <button onClick={() => setFormData(p => ({...p, current: p.current + 1}))} className="w-10 h-10 rounded-full bg-white/5 text-[#0071e3] font-bold text-xl">+</button>
                     </div>
                   </div>
                   <div className="bg-white/5 rounded-2xl p-6 border border-white/5 text-center">
                     <label className="text-[11px] font-bold text-[#86868b] uppercase tracking-widest block mb-4">최소 유지</label>
                     <div className="flex items-center justify-between">
-                      <button onClick={() => setFormData(p => ({...p, min: Math.max(0, p.min - 1)}))} className="w-10 h-10 rounded-full bg-white/5 text-[#ff453a] font-bold text-xl hover:bg-white/10">-</button>
+                      <button onClick={() => setFormData(p => ({...p, min: Math.max(0, p.min - 1)}))} className="w-10 h-10 rounded-full bg-white/5 text-[#ff453a] font-bold text-xl">-</button>
                       <span className="text-3xl font-bold italic text-white">{formData.min}</span>
-                      <button onClick={() => setFormData(p => ({...p, min: p.min + 1}))} className="w-10 h-10 rounded-full bg-white/5 text-[#0071e3] font-bold text-xl hover:bg-white/10">+</button>
+                      <button onClick={() => setFormData(p => ({...p, min: p.min + 1}))} className="w-10 h-10 rounded-full bg-white/5 text-[#0071e3] font-bold text-xl">+</button>
                     </div>
                   </div>
                 </div>
               </div>
-              <button onClick={handleSave} className="w-full bg-[#0071e3] text-white font-bold py-5 rounded-2xl mt-12 shadow-xl hover:scale-[1.01] active:scale-95 transition-all text-[16px]">수정하기</button>
+              <button onClick={handleSave} className="w-full bg-[#0071e3] text-white font-bold py-5 rounded-2xl mt-12 shadow-xl active:scale-95 transition-all text-[16px]">수정하기</button>
             </div>
           </div>
         )}
