@@ -34,6 +34,15 @@ export default function Home({ initialData }) {
   const units = ['개', '팩', '박스', '봉지', '통', 'ml', '캔', '롤'];
   const [formData, setFormData] = useState({ name: '', category: '아기용품', current: 0, min: 2, unit: '개' });
 
+  // 📊 [에러 해결 포인트] 카테고리별 부족/준비 품목 개수 계산 (요약 배지)
+  const categoryCounts = useMemo(() => {
+    const counts = { '전체': items.filter(i => i.current <= i.min).length };
+    categories.forEach(cat => {
+      counts[cat] = items.filter(i => i.category === cat && i.current <= i.min).length;
+    });
+    return counts;
+  }, [items, categories]);
+
   useEffect(() => {
     if (catContainerRef.current) {
       const { scrollHeight } = catContainerRef.current;
@@ -51,9 +60,7 @@ export default function Home({ initialData }) {
   const filteredItems = useMemo(() => {
     return items.filter(item => {
       const matchCategory = activeFilter === '전체' || item.category === activeFilter;
-      // 부족 또는 준비 상태인 것만 보기
-      const isCritical = item.current <= item.min;
-      const matchLowStock = showLowStockOnly ? isCritical : true;
+      const matchLowStock = showLowStockOnly ? item.current <= item.min : true;
       const matchSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
       return matchCategory && matchLowStock && matchSearch;
     });
@@ -67,7 +74,6 @@ export default function Home({ initialData }) {
       let statusText = '✅ 여유';
       if (item.current < item.min) statusText = '🚨 부족';
       else if (item.current === item.min) statusText = '⚠️ 준비';
-
       mdContent += `| **${item.name}** | ${item.category} | ${item.current} | ${item.min} | ${item.unit} | ${statusText} |\n`;
     });
 
@@ -178,18 +184,13 @@ export default function Home({ initialData }) {
 
         <div className="space-y-4 md:space-y-6">
           {filteredItems.map((item, idx) => {
-            // ✨ 상태별 색상/텍스트 로직
             const isShort = item.current < item.min;
             const isJustEnough = item.current === item.min;
-            
             return (
               <div key={idx} className={`group relative border border-white/5 rounded-2xl md:rounded-3xl p-5 md:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all 
                 ${isShort ? 'bg-[#ff453a]/5' : isJustEnough ? 'bg-[#ffcc00]/5' : 'bg-[#1c1c1e]/50'}`}>
-                
-                {/* 왼쪽 강조 선 */}
                 {isShort && <div className="absolute left-0 top-4 bottom-4 w-1 bg-[#ff453a] rounded-r-full shadow-lg shadow-[#ff453a]/30"></div>}
                 {isJustEnough && <div className="absolute left-0 top-4 bottom-4 w-1 bg-[#ffcc00] rounded-r-full shadow-lg shadow-[#ffcc00]/30"></div>}
-
                 <div className="flex-1 w-full sm:w-auto">
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="text-[18px] md:text-[21px] font-bold text-white group-hover:text-[#0071e3] transition-colors cursor-pointer" onClick={() => openModal(item)}>{item.name}</h3>
